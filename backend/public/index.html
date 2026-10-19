@@ -1,0 +1,81 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ciclo Sur | Taller de bicicletas</title>
+
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <div class="app">
+
+        <aside class="sidebar">
+            <h2>✦ Ciclo Sur</h2>
+
+            <div class="sidebar-footer">
+                Taller ficticio de bicicletas
+            </div>
+        </aside>
+
+        <main class="chat">
+
+            <header class="chat-header">
+                <div class="avatar">✦</div>
+
+                <div>
+                    <h1>Ciclo Sur</h1>
+                    <span class="status">Tu taller de bicicletas</span>
+                </div>
+                <button id="new-chat" class="new-chat" type="button">+ Nuevo chat</button>
+            </header>
+
+            <section
+                id="messages"
+                class="messages"
+                aria-live="polite"
+                aria-label="Conversación"
+            >
+                <div class="welcome">
+                    <div class="welcome-icon">✦</div>
+
+                    <h2>¡Hola! Soy el asistente de Ciclo Sur</h2>
+
+                    <p>
+                        Consultame sobre horarios, servicios
+                        y mantenimiento de tu bicicleta.
+                    </p>
+                </div>
+            </section>
+
+            <form id="chat-form" class="chat-form">
+                <label class="sr-only" for="message-input">
+                    Escribí tu mensaje
+                </label>
+
+                <input
+                    type="text"
+                    id="message-input"
+                    placeholder="¿En qué podemos ayudarte?"
+                    maxlength="2000"
+                    autocomplete="off"
+                    required
+                >
+
+                <button type="submit" id="send-button">
+                    Enviar
+                </button>
+            </form>
+
+            <p class="disclaimer">
+                Taller ficticio · La IA puede cometer errores. No confirmamos precios ni reservas.
+            </p>
+
+        </main>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
