@@ -45,6 +45,8 @@ function browser(base) {
         set innerHTML(value) { this._html = value; this.children = []; }
         get innerHTML() { return this._html; }
         querySelector() { return { remove() {} }; }
+        querySelectorAll() { return this.buttons || []; }
+        requestSubmit() { this.submitted = this.handlers.submit({ preventDefault() {} }); }
         appendChild(child) { this.children.push(child); }
         addEventListener(name, handler) { this.handlers[name] = handler; }
         setAttribute(name, value) { this.attributes[name] = value; }
@@ -65,9 +67,26 @@ function browser(base) {
             return fetch(base + url, options);
         }
     };
+    const questions = [...fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8')
+        .matchAll(/data-question="([^"]+)"/g)].map(match => match[1]);
+    const quickButtons = questions.map(question => {
+        const button = new Element();
+        button.dataset = { question };
+        return button;
+    });
+    env.document.getElementById('quick-questions').buttons = quickButtons;
+    env.document.getElementById('chat-wait').hidden = true;
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/js/app.js'), 'utf8'), env);
     return {
-        env, requests,
+        env, requests, quickButtons,
+        wait: elements.get('chat-wait'),
+        async quick(index) {
+            if (quickButtons[index].disabled) return;
+            elements.get('quick-questions').handlers.click({
+                target: { closest() { return quickButtons[index]; } }
+            });
+            await elements.get('chat-form').submitted;
+        },
         input: elements.get('message-input'),
         messages: elements.get('messages'),
         send: elements.get('send-button'),
@@ -186,6 +205,23 @@ test('Ciclo Sur: frontend, API y contrato Gemini simulado', async (t) => {
             await reloaded.submit('Hola');
             assert.deepEqual(reloaded.requests[0].history, []);
         });
+        await t.test('cuatro consultas rápidas usan el único envío y conservan historial', async () => {
+            const ui = browser(base);
+            assert.equal(ui.quickButtons.length, 4);
+            const start = calls.length;
+            for (let i = 0; i < 4; i++) {
+                await ui.quick(i);
+                assert.equal(ui.requests.length, i + 1);
+                assert.equal(ui.requests[i].message, ui.quickButtons[i].dataset.question);
+                assert.equal(ui.requests[i].history.length, i * 2);
+                assert.equal(ui.wait.hidden, true);
+                assert.ok(ui.quickButtons.every(button => !button.disabled));
+            }
+            assert.equal(calls.length - start, 4);
+            ui.reset();
+            await ui.quick(0);
+            assert.deepEqual(ui.requests.at(-1).history, []);
+        });
         await t.test('error y respuesta vacía del proveedor: 502, sin detalles sensibles ni historial de error', async () => {
             for (const failure of ['error', 'empty']) {
                 mode = failure;
@@ -208,9 +244,13 @@ test('Ciclo Sur: frontend, API y contrato Gemini simulado', async (t) => {
             ui.env.fetch = () => new Promise(resolve => { release = resolve; });
             const first = ui.submit('Primera consulta');
             assert.equal(ui.send.disabled, true);
+            assert.equal(ui.wait.hidden, false);
+            assert.ok(ui.quickButtons.every(button => button.disabled));
+            await ui.quick(0);
             await ui.submit('No debe enviarse');
             ui.reset();
             assert.equal(ui.send.disabled, false);
+            assert.equal(ui.wait.hidden, true);
             release({ ok: true, json: async () => ({ success: true, response: 'Respuesta antigua' }) });
             await first;
             assert.equal(ui.messages.children.length, 0);

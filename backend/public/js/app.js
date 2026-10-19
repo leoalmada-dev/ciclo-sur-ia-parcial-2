@@ -3,6 +3,8 @@ const messageInput = document.getElementById("message-input");
 const messagesContainer = document.getElementById("messages");
 const newChatButton = document.getElementById("new-chat");
 const sendButton = document.getElementById("send-button");
+const quickQuestions = document.getElementById("quick-questions");
+const waitIndicator = document.getElementById("chat-wait");
 const welcomeMarkup = messagesContainer.innerHTML;
 // Solo memoria de esta pestaña: no se guarda en cookies ni almacenamiento local.
 let history = [];
@@ -23,6 +25,8 @@ function setBusy(busy) {
     sendButton.disabled = busy;
     sendButton.textContent = busy ? "Consultando…" : "Enviar";
     chatForm.setAttribute("aria-busy", String(busy));
+    waitIndicator.hidden = !busy;
+    quickQuestions.querySelectorAll("button").forEach((button) => { button.disabled = busy; });
 }
 
 chatForm.addEventListener("submit", async (event) => {
@@ -94,4 +98,12 @@ newChatButton.addEventListener("click", () => {
     messageInput.value = "";
     setBusy(false);
     messageInput.focus();
+});
+
+// Las consultas rápidas usan el mismo formulario y la misma llamada a la API.
+quickQuestions.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-question]");
+    if (!button || pendingRequest) return;
+    messageInput.value = button.dataset.question;
+    chatForm.requestSubmit();
 });

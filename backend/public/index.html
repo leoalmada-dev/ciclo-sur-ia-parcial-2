@@ -1,81 +1,79 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#154C43">
+    <meta name="description" content="Conocé los horarios y servicios de Ciclo Sur, taller ficticio de bicicletas, y consultá a su asistente virtual.">
     <title>Ciclo Sur | Taller de bicicletas</title>
-
     <link rel="stylesheet" href="css/styles.css">
 </head>
-
 <body>
     <div class="app">
-
-        <aside class="sidebar">
-            <h2>✦ Ciclo Sur</h2>
-
-            <div class="sidebar-footer">
-                Taller ficticio de bicicletas
+        <aside class="sidebar" aria-label="Información del taller">
+            <div class="brand">
+                <span class="brand-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6h2l3 11.5M5.5 17.5l4-8h6l-5 8h-5L8 5H5.5"/></svg></span>
+                <div><p class="brand-name">Ciclo Sur<span class="brand-dot">.</span></p><p class="brand-caption">Taller de bicicletas</p></div>
             </div>
+
+            <div class="sidebar-intro">
+                <span class="eyebrow">A TU RITMO</span>
+                <h2>Tu bici, en<br>buenas manos.</h2>
+                <p>Del ajuste de todos los días al mantenimiento que necesita tu próxima salida.</p>
+            </div>
+
+            <div class="workshop-info">
+                <section class="info-section" aria-labelledby="hours-title">
+                    <h2 id="hours-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></svg>Horarios</h2>
+                    <dl class="hours">
+                        <div><dt>Lunes a viernes</dt><dd>9–18 h</dd></div>
+                        <div><dt>Sábados</dt><dd>9–13 h</dd></div>
+                        <div class="closed"><dt>Domingos</dt><dd>Cerrado</dd></div>
+                    </dl>
+                </section>
+                <section class="info-section services-section" aria-labelledby="services-title">
+                    <h2 id="services-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M14 6a5 5 0 0 0-6 6l-5 5a2 2 0 0 0 4 4l5-5a5 5 0 0 0 6-6l-3 3-4-4 3-3Z"/></svg>Servicios</h2>
+                    <ul class="service-list"><li>Frenos</li><li>Cambios</li><li>Cubiertas</li><li>Cámaras</li><li>Mantenimiento general</li></ul>
+                </section>
+            </div>
+
+            <div class="sidebar-footer"><span class="footer-line"></span><p>Menos dudas.<br>Más ganas de pedalear.</p></div>
         </aside>
 
         <main class="chat">
-
             <header class="chat-header">
-                <div class="avatar">✦</div>
-
-                <div>
-                    <h1>Ciclo Sur</h1>
-                    <span class="status">Tu taller de bicicletas</span>
-                </div>
-                <button id="new-chat" class="new-chat" type="button">+ Nuevo chat</button>
+                <div class="avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6h2l3 11.5M5.5 17.5l4-8h6l-5 8h-5L8 5H5.5"/></svg></div>
+                <div class="header-copy"><p class="eyebrow">CICLO SUR</p><h1>Asistente del taller</h1></div>
+                <button id="new-chat" class="new-chat" type="button"><span aria-hidden="true">＋</span> Nuevo chat</button>
             </header>
 
-            <section
-                id="messages"
-                class="messages"
-                aria-live="polite"
-                aria-label="Conversación"
-            >
+            <section id="messages" class="messages" role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversación">
                 <div class="welcome">
-                    <div class="welcome-icon">✦</div>
-
-                    <h2>¡Hola! Soy el asistente de Ciclo Sur</h2>
-
-                    <p>
-                        Consultame sobre horarios, servicios
-                        y mantenimiento de tu bicicleta.
-                    </p>
+                    <div class="welcome-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6h2l3 11.5M5.5 17.5l4-8h6l-5 8h-5L8 5H5.5"/></svg></div>
+                    <p class="eyebrow">CADA SALIDA EMPIEZA CON UNA BICI A PUNTO</p>
+                    <h2>¿Qué necesita<br>tu bici hoy?</h2>
+                    <p class="welcome-description">Consultá horarios, conocé nuestros servicios o contanos qué le pasa a tu bicicleta.</p>
+                    <span class="welcome-note"><span aria-hidden="true"></span>Un poco de orientación para seguir pedaleando.</span>
                 </div>
             </section>
 
-            <form id="chat-form" class="chat-form">
-                <label class="sr-only" for="message-input">
-                    Escribí tu mensaje
-                </label>
-
-                <input
-                    type="text"
-                    id="message-input"
-                    placeholder="¿En qué podemos ayudarte?"
-                    maxlength="2000"
-                    autocomplete="off"
-                    required
-                >
-
-                <button type="submit" id="send-button">
-                    Enviar
-                </button>
-            </form>
-
-            <p class="disclaimer">
-                Taller ficticio · La IA puede cometer errores. No confirmamos precios ni reservas.
-            </p>
-
+            <div class="composer">
+                <div id="chat-wait" class="chat-wait" role="status" aria-live="polite" aria-atomic="true" hidden><span class="waiting-dots" aria-hidden="true"><span></span><span></span><span></span></span>Ciclo Sur está preparando una respuesta…</div>
+                <div id="quick-questions" class="quick-questions" role="group" aria-label="Consultas rápidas">
+                    <button type="button" data-question="¿Qué horarios tienen?">Horarios<span aria-hidden="true">↗</span></button>
+                    <button type="button" data-question="¿Qué servicios ofrecen?">Servicios<span aria-hidden="true">↗</span></button>
+                    <button type="button" data-question="Mi bicicleta no frena bien. ¿Qué me recomiendan?">Frenos<span aria-hidden="true">↗</span></button>
+                    <button type="button" data-question="¿Qué incluye el mantenimiento general de la bicicleta?">Mantenimiento<span aria-hidden="true">↗</span></button>
+                </div>
+                <form id="chat-form" class="chat-form">
+                    <label class="sr-only" for="message-input">Escribí tu mensaje</label>
+                    <input type="text" id="message-input" placeholder="Contanos, ¿en qué te ayudamos?" maxlength="2000" autocomplete="off" enterkeyhint="send" required>
+                    <button type="submit" id="send-button">Enviar</button>
+                </form>
+                <p class="disclaimer">Taller ficticio · La IA ofrece orientación y puede equivocarse.<br class="mobile-break"> No confirma precios ni reservas.</p>
+            </div>
         </main>
     </div>
-
     <script src="js/app.js"></script>
 </body>
 </html>

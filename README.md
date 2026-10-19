@@ -8,6 +8,25 @@ de forma breve usando los datos y límites indicados en el prompt del sistema.
 Parte del código y del diseño deriva del ejemplo docente proporcionado por la
 profesora. Se conservaron HTML, CSS, JavaScript, Express y la integración Gemini;
 se adaptaron la identidad, el prompt, el contexto breve y la publicación.
+El frontend actual en `backend/public/` es la única fuente de la interfaz.
+
+## Publicación actual
+
+- GitHub: https://github.com/leoalmada-dev/ciclo-sur-ia-parcial-2
+- Vercel: https://ciclo-sur-ia.vercel.app/
+
+La aplicación base está publicada. La evolución visual de `feat/ui-ciclo-sur`
+permanece local para revisión; todavía no fue enviada ni desplegada.
+
+## Mejoras de interfaz
+
+- Identidad verde petróleo, acentos verdes, superficies claras e iconos SVG inline.
+- Panel con horarios y servicios, visible también en celulares.
+- Consultas rápidas de Horarios, Servicios, Frenos y Mantenimiento que usan el
+  mismo formulario y flujo de envío manual.
+- Indicador accesible de espera, sin animación con `prefers-reduced-motion`.
+- “Nuevo chat” cancela la solicitud pendiente y reinicia el contexto.
+- Sin imágenes, fuentes remotas, CDN ni nuevas dependencias.
 
 ## Alcance
 
@@ -27,7 +46,7 @@ Node.js 22, Express 5, SDK oficial `@google/genai`, dotenv; Nodemon para desarro
 No se agregaron dependencias. La dependencia CORS del ejemplo queda en el lockfile,
 pero no se utiliza: interfaz y API comparten origen.
 
-- `backend/public/`: frontend trasladado desde `frontend/`, manteniendo el diseño.
+- `backend/public/`: única interfaz; evolución del frontend docente trasladado.
 - `backend/src/app.js`: Express, frontend local y errores JSON.
 - `backend/src/routes/chat.routes.js`: POST `/api/chat` y validación.
 - `backend/src/services/gemini.service.js`: modelo, prompt y llamada a Gemini.
@@ -65,12 +84,12 @@ Para la prueba real posterior: preguntar horarios y “¿y los sábados?”, ser
 horarios correctos, revisión presencial, no circular si no frena bien y ausencia
 de precios inventados. Luego iniciar “Nuevo chat” y comprobar que no recuerda.
 
-## GitHub y Vercel (todavía no publicados)
+## Configuración de GitHub y Vercel
 
-1. Revisar la copia y excluir `.env`, `node_modules/` y `.vercel/`.
-2. Crear el repositorio de GitHub cuando se autorice, conservando este README,
-   fuentes, pruebas, `.env.example` y `package-lock.json`.
-3. Importarlo en un único proyecto de Vercel, con Root Directory `backend`,
+1. Mantener excluidos `.env`, `node_modules/` y `.vercel/`.
+2. Conservar fuentes, pruebas, `.env.example` y `package-lock.json` en GitHub.
+   Los cambios de interfaz se revisan en `feat/ui-ciclo-sur` antes de publicarlos.
+3. La configuración prevista del único proyecto Vercel usa Root Directory `backend`,
    framework Express y Node.js 22.x. No se necesita un build de frontend ni
    una configuración legacy de `builds`/rewrites. Mantener ajustes automáticos.
 4. Configurar `GEMINI_API_KEY` en las variables de entorno del proyecto para
@@ -88,7 +107,7 @@ El equipo informó una validación real satisfactoria con `gemini-3.5-flash-lite
 incluyendo continuidad conversacional, horarios, servicios y límites sobre precios.
 Las pruebas automatizadas siguen usando Gemini simulado, sin consumir cuota.
 El acceso al modelo y las cuotas del entorno de Vercel deben verificarse allí.
-El despliegue requiere comprobar tiempos de respuesta y configuración en Vercel.
+Después de publicar cambios, volver a comprobar tiempos de respuesta y configuración en Vercel.
 El cliente puede modificar el historial; no debe tratarse como evidencia de datos
 reales ni reservas.
 
