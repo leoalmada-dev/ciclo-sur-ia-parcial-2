@@ -18,6 +18,7 @@ function addMessage(text, sender) {
     message.textContent = text;
     messagesContainer.appendChild(message);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    return message;
 }
 
 function setBusy(busy) {
@@ -31,7 +32,8 @@ function setBusy(busy) {
 
 chatForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const message = messageInput.value.trim();
+    const originalMessage = messageInput.value;
+    const message = originalMessage.trim();
     if (pendingRequest || !message) return;
     if (message.length > 2000) {
         addMessage("Escribí un mensaje de hasta 2000 caracteres.", "assistant");
@@ -41,7 +43,8 @@ chatForm.addEventListener("submit", async (event) => {
     const controller = new AbortController();
     pendingRequest = controller;
     const timeout = setTimeout(() => controller.abort(), 35000);
-    addMessage(message, "user");
+    const userMessage = addMessage(message, "user");
+    let succeeded = false;
     messageInput.value = "";
     setBusy(true);
     try {
@@ -53,7 +56,8 @@ chatForm.addEventListener("submit", async (event) => {
         });
         const data = await response.json();
         if (version !== chatVersion) return;
-        if (!response.ok || !data.success) {
+        controller.signal.throwIfAborted();
+        if (!response.ok || data?.success !== true) {
             const fallback = "No pudimos consultar al asistente. Intentá nuevamente.";
             // Solo mostrar mensajes previstos por nuestra API, nunca el cuerpo de un proxy.
             const messages = {
@@ -73,6 +77,7 @@ chatForm.addEventListener("submit", async (event) => {
             { role: "user", text: message },
             { role: "model", text: data.response.slice(0, 6000) }
         ].slice(-8);
+        succeeded = true;
     } catch (error) {
         if (version === chatVersion) {
             addMessage(error.name === "AbortError"
@@ -82,6 +87,10 @@ chatForm.addEventListener("submit", async (event) => {
     } finally {
         clearTimeout(timeout);
         if (version === chatVersion) {
+            if (!succeeded) {
+                userMessage.remove();
+                messageInput.value = originalMessage;
+            }
             pendingRequest = null;
             setBusy(false);
             messageInput.focus();
