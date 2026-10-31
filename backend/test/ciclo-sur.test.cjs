@@ -29,7 +29,7 @@ class FakeGoogleGenAI {
     }
 }
 
-function browser(base) {
+function browser(base, overrides = {}) {
     const elements = new Map();
     class Element {
         constructor() {
@@ -39,18 +39,32 @@ function browser(base) {
             this.children = [];
             this.handlers = {};
             this.attributes = {};
-            this.classList = { add() {} };
+            const classes = new Set();
+            this.classList = {
+                add(...names) { names.forEach(name => classes.add(name)); },
+                contains(name) { return classes.has(name); }
+            };
             this._html = '<div class="welcome">Ciclo Sur</div>';
         }
-        set innerHTML(value) { this._html = value; this.children = []; }
+        set innerHTML(value) {
+            this._html = value;
+            this.children.forEach(child => { child.parentNode = null; });
+            this.children = [];
+        }
         get innerHTML() { return this._html; }
         querySelector() { return { remove() {} }; }
         querySelectorAll() { return this.buttons || []; }
         requestSubmit() { this.submitted = this.handlers.submit({ preventDefault() {} }); }
-        appendChild(child) { this.children.push(child); }
+        appendChild(child) { child.parentNode = this; this.children.push(child); }
+        remove() {
+            if (!this.parentNode) return;
+            const siblings = this.parentNode.children;
+            siblings.splice(siblings.indexOf(this), 1);
+            this.parentNode = null;
+        }
         addEventListener(name, handler) { this.handlers[name] = handler; }
         setAttribute(name, value) { this.attributes[name] = value; }
-        focus() {}
+        focus() { this.focusCount = (this.focusCount || 0) + 1; }
     }
     const requests = [];
     const env = {
@@ -61,9 +75,12 @@ function browser(base) {
             },
             createElement() { return new Element(); }
         },
-        AbortController, setTimeout, clearTimeout,
+        AbortController,
+        setTimeout: overrides.setTimeout || setTimeout,
+        clearTimeout: overrides.clearTimeout || clearTimeout,
         fetch: async (url, options) => {
             requests.push(JSON.parse(options.body));
+            if (overrides.fetch) return overrides.fetch(url, options);
             return fetch(base + url, options);
         }
     };
@@ -90,6 +107,7 @@ function browser(base) {
         input: elements.get('message-input'),
         messages: elements.get('messages'),
         send: elements.get('send-button'),
+        newChat: elements.get('new-chat'),
         form: elements.get('chat-form'),
         async submit(text) {
             elements.get('message-input').value = text;
@@ -98,6 +116,246 @@ function browser(base) {
         reset() { elements.get('new-chat').handlers.click(); }
     };
 }
+
+// Ejecuta el script real con DOM mínimo, fetch controlado y reloj manual.
+// No usa la red ni espera los 35 segundos del timeout de producción.
+function controlledBrowser({ ignoreAbort = false } = {}) {
+    const pending = [];
+    const timers = new Map();
+    let timerId = 0;
+    const ui = browser('', {
+        fetch(url, options) {
+            assert.equal(url, '/api/chat');
+            assert.equal(options.method, 'POST');
+            return new Promise((resolve, reject) => {
+                pending.push({
+                    signal: options.signal, reject,
+                    respond(data = { success: true, response: 'Respuesta' }, status = 200) {
+                        resolve({ ok: status >= 200 && status < 300, status, json: async () => data });
+                    },
+                    resolve
+                });
+                if (!ignoreAbort) {
+                    options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true });
+                }
+            });
+        },
+        setTimeout(callback, delay) {
+            assert.equal(delay, 35000);
+            timers.set(++timerId, callback);
+            return timerId;
+        },
+        clearTimeout(id) { timers.delete(id); }
+    });
+    return {
+        ...ui, pending, timers,
+        expire() { for (const callback of [...timers.values()]) callback(); },
+        userMessages() { return ui.messages.children.filter(child => child.classList.contains('user')); }
+    };
+}
+
+function assertBusy(ui, busy) {
+    assert.equal(ui.input.disabled, busy);
+    assert.equal(ui.send.disabled, busy);
+    assert.equal(ui.send.textContent, busy ? 'Consultando…' : 'Enviar');
+    assert.equal(ui.form.attributes['aria-busy'], String(busy));
+    assert.equal(ui.wait.hidden, !busy);
+    assert.ok(ui.quickButtons.every(button => button.disabled === busy));
+    assert.equal(ui.newChat.disabled, false);
+}
+
+test('CICLO-SUR-UX-01: recuperación manual y aislamiento de conversaciones', async (t) => {
+    await t.test('01 consulta exitosa conserva burbujas y limpia el campo', async () => {
+        const ui = controlledBrowser();
+        const sent = ui.submit('  Horarios  ');
+        assert.equal(ui.input.value, '');
+        assert.deepEqual(ui.requests, [{ message: 'Horarios', history: [] }]);
+        ui.pending[0].respond();
+        await sent;
+        assert.deepEqual(ui.messages.children.map(child => child.textContent), ['Horarios', 'Respuesta']);
+        assert.equal(ui.input.value, '');
+        assert.equal(ui.timers.size, 0);
+        assertBusy(ui, false);
+    });
+
+    const failures = [
+        ['02 HTTP no exitoso', request => request.respond({ success: false }, 502)],
+        ['03 error de conexión', request => request.reject(new TypeError('PRIVATE_NETWORK_DETAIL'))],
+        ['04 timeout', (_request, ui) => ui.expire()],
+        ['05 JSON malformado', request => request.resolve({ ok: true, json: async () => {
+            throw new SyntaxError('PRIVATE_JSON_DETAIL');
+        } })]
+    ];
+    for (const [name, fail] of failures) {
+        await t.test(name + ': restaura texto exacto sin reintentar', async () => {
+            const ui = controlledBrowser();
+            const original = '  Necesito revisar mis frenos  ';
+            const sent = ui.submit(original);
+            assertBusy(ui, true);
+            fail(ui.pending[0], ui);
+            await sent;
+            assert.equal(ui.input.value, original);
+            assert.equal(ui.userMessages().length, 0);
+            assert.equal(ui.messages.children.length, 1);
+            assert.doesNotMatch(ui.messages.children[0].textContent, /PRIVATE/);
+            assertBusy(ui, false);
+            assert.equal(ui.input.focusCount, 1);
+            assert.equal(ui.requests.length, 1);
+            assert.equal(ui.timers.size, 0);
+            if (name.startsWith('04')) {
+                assert.equal(ui.pending[0].signal.aborted, true);
+                assert.match(ui.messages.children[0].textContent, /tardó demasiado/);
+            }
+        });
+    }
+
+    await t.test('06 respuestas estructuralmente inválidas recuperan el mensaje', async () => {
+        for (const body of [null, {}, [], 'texto', { success: false },
+            { success: 'true', response: 'No válida' }, { success: 1, response: 'No válida' },
+            { success: true }, { success: true, response: null },
+            { success: true, response: 42 }, { success: true, response: '  ' }]) {
+            const ui = controlledBrowser();
+            const sent = ui.submit('Mi consulta');
+            ui.pending[0].respond(body);
+            await sent;
+            assert.equal(ui.input.value, 'Mi consulta');
+            assert.equal(ui.userMessages().length, 0);
+            assertBusy(ui, false);
+        }
+    });
+
+    await t.test('07 texto recuperado editable; 08 reenvío manual sin burbuja duplicada', async () => {
+        const ui = controlledBrowser();
+        const first = ui.submit('Frenos');
+        ui.pending[0].respond({ success: false }, 503);
+        await first;
+        assert.equal(ui.input.value, 'Frenos');
+        const retry = ui.submit(ui.input.value + ' y cambios');
+        assert.equal(ui.userMessages().length, 1);
+        assert.equal(ui.userMessages()[0].textContent, 'Frenos y cambios');
+        ui.pending[1].respond();
+        await retry;
+        assert.equal(ui.userMessages().length, 1);
+        assert.equal(ui.requests.length, 2);
+    });
+
+    await t.test('09 historial excluye todos los fallos; 10 conserva intercambios exitosos', async () => {
+        const ui = controlledBrowser();
+        const first = ui.submit('Primera');
+        ui.pending[0].respond({ success: true, response: 'Primera respuesta' });
+        await first;
+        const expected = [{ role: 'user', text: 'Primera' }, { role: 'model', text: 'Primera respuesta' }];
+        for (const [, fail] of [...failures, ['inválida', request => request.respond(null)]]) {
+            const sent = ui.submit('Consulta fallida');
+            fail(ui.pending.at(-1), ui);
+            await sent;
+            assert.deepEqual(ui.requests.at(-1).history, expected);
+            assert.deepEqual(ui.userMessages().map(child => child.textContent), ['Primera']);
+        }
+        const retry = ui.submit('Reintento');
+        assert.deepEqual(ui.requests.at(-1).history, expected);
+        ui.pending.at(-1).respond({ success: true, response: 'Segunda respuesta' });
+        await retry;
+        const next = ui.submit('Siguiente');
+        assert.deepEqual(ui.requests.at(-1).history, [...expected,
+            { role: 'user', text: 'Reintento' }, { role: 'model', text: 'Segunda respuesta' }]);
+        ui.pending.at(-1).respond();
+        await next;
+    });
+
+    await t.test('11 Nuevo chat cancela, vacía campo, historial y conversación sin restaurar', async () => {
+        const ui = controlledBrowser();
+        const first = ui.submit('Conservar hasta reset');
+        ui.pending[0].respond();
+        await first;
+        const pending = ui.submit('Descartar');
+        ui.reset();
+        assert.equal(ui.pending[1].signal.aborted, true);
+        await pending;
+        assert.equal(ui.input.value, '');
+        assert.equal(ui.messages.children.length, 0);
+        assert.match(ui.messages.innerHTML, /welcome/);
+        assertBusy(ui, false);
+        assert.equal(ui.timers.size, 0);
+        const next = ui.submit('Nueva');
+        assert.deepEqual(ui.requests.at(-1).history, []);
+        ui.pending[2].respond();
+        await next;
+    });
+
+    await t.test('12 respuestas y errores tardíos no alteran borradores ni solicitudes nuevas', async () => {
+        for (const late of [request => request.respond(), request => request.reject(new Error('late')),
+            request => request.respond(null), request => request.respond({ success: false }, 502)]) {
+            const ui = controlledBrowser({ ignoreAbort: true });
+            const old = ui.submit('Anterior');
+            ui.reset();
+            ui.input.value = 'Borrador nuevo';
+            late(ui.pending[0]);
+            await old;
+            assert.equal(ui.input.value, 'Borrador nuevo');
+            assert.equal(ui.messages.children.length, 0);
+
+            const older = ui.submit('Otra anterior');
+            ui.reset();
+            const current = ui.submit('Actual');
+            const focusCount = ui.input.focusCount;
+            late(ui.pending[1]);
+            await older;
+            assertBusy(ui, true);
+            assert.equal(ui.input.focusCount, focusCount);
+            assert.equal(ui.timers.size, 1);
+            assert.deepEqual(ui.userMessages().map(child => child.textContent), ['Actual']);
+            assert.equal(ui.input.value, '');
+            assert.deepEqual(ui.requests.at(-1).history, []);
+            ui.pending[2].respond({ success: true, response: 'Actual respuesta' });
+            await current;
+            const next = ui.submit('Siguiente');
+            assert.deepEqual(ui.requests.at(-1).history, [
+                { role: 'user', text: 'Actual' }, { role: 'model', text: 'Actual respuesta' }]);
+            ui.pending[3].respond();
+            await next;
+        }
+    });
+
+    await t.test('12b timeout descarta éxito tardío aunque fetch ignore abort', async () => {
+        const ui = controlledBrowser({ ignoreAbort: true });
+        const sent = ui.submit('Expirada');
+        ui.expire();
+        ui.pending[0].respond();
+        await sent;
+        assert.equal(ui.input.value, 'Expirada');
+        assert.equal(ui.userMessages().length, 0);
+        assert.match(ui.messages.children.at(-1).textContent, /tardó demasiado/);
+    });
+
+    await t.test('13 consultas rápidas tras un error usan el formulario y el mismo flujo', async () => {
+        const ui = controlledBrowser();
+        const first = ui.submit('Fallida');
+        ui.pending[0].respond({ success: false }, 502);
+        await first;
+        const quick = ui.quick(0);
+        assertBusy(ui, true);
+        assert.equal(ui.requests[1].message, ui.quickButtons[0].dataset.question);
+        assert.deepEqual(ui.requests[1].history, []);
+        assert.equal(ui.userMessages().length, 1);
+        ui.pending[1].respond();
+        await quick;
+        assertBusy(ui, false);
+    });
+
+    await t.test('14 espera, accesibilidad y bloqueo de envíos simultáneos', async () => {
+        const ui = controlledBrowser();
+        const sent = ui.submit('Pendiente');
+        assertBusy(ui, true);
+        await ui.submit('No enviar');
+        await ui.quick(0);
+        assert.equal(ui.requests.length, 1);
+        ui.pending[0].respond();
+        await sent;
+        assertBusy(ui, false);
+        assert.equal(ui.input.focusCount, 1);
+    });
+});
 
 test('Ciclo Sur: frontend, API y contrato Gemini simulado', async (t) => {
     const oldKey = process.env.GEMINI_API_KEY;
